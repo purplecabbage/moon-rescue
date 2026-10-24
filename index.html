@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moon Rescue</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Dots&family=Share+Tech+Mono&display=swap">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <div id="stage">
+    <div id="game-root"></div>
+    <div id="scanlines"></div>
+    <div id="vignette"></div>
+    <div id="damage-flash"></div>
+    <div class="bracket" id="b-tl"></div>
+    <div class="bracket" id="b-tr"></div>
+    <div class="bracket" id="b-bl"></div>
+    <div class="bracket" id="b-br"></div>
+
+    <button id="btn-tune" title="Tuning console (T)">⚙</button>
+
+    <div id="hud" hidden>
+      <div class="hud-row" id="hud-miners">MINERS <span id="rescued-count">0</span>/<span id="total-count">6</span><span id="carrying-wrap"> &middot; CARRYING <span id="carrying-count">0</span>/<span id="carrying-capacity">4</span></span></div>
+      <div class="hud-row" id="hud-lives">LIVES <span id="lives-count">●●●</span></div>
+      <div class="hud-row" id="hud-shield-wrap">
+        <span class="hud-bar-label">SHIELD</span>
+        <div id="hud-shield-bar"><div id="hud-shield-fill"></div></div>
+      </div>
+      <div class="hud-row" id="hud-fuel-wrap">
+        <span class="hud-bar-label">FUEL</span>
+        <div id="hud-fuel-bar"><div id="hud-fuel-fill"></div></div>
+      </div>
+      <div class="hud-row" id="hud-gravity"></div>
+      <div class="hud-row" id="hud-message"></div>
+    </div>
+
+    <div class="panel" id="panel-intro">
+      <h1>MOON RESCUE</h1>
+      <p class="tagline" id="intro-story">
+        Incident report: a shaft collapse has trapped the mining crew of Site Kappa below the surface.
+        Thermal uplink shows their heat signatures scattered through the collapsed tunnels. Descend, find them,
+        and carry them back to the surface base before your hull or fuel give out.
+      </p>
+      <div class="brief">
+        <div><b>DESKTOP</b>←/→ or A/D rotate · ↑ or W thrust</div>
+        <div><b>MOBILE</b>on-screen thrusters below</div>
+      </div>
+      <div class="brief" id="intro-level-name"></div>
+      <button class="cta" id="btn-launch">Launch Mission</button>
+    </div>
+
+    <div class="panel" id="panel-end" hidden>
+      <h1 id="end-title">MISSION COMPLETE</h1>
+      <div id="end-stats"></div>
+      <button class="cta" id="btn-restart">Relaunch Mission</button>
+    </div>
+
+    <div class="panel" id="panel-tune" hidden>
+      <h1>TUNING CONSOLE</h1>
+      <p class="tagline">Mission paused. Drag a slider or type an exact value — changes apply immediately, live.</p>
+      <div id="tune-fields" class="tune-fields"></div>
+      <button class="cta" id="btn-tune-close">Resume Mission</button>
+    </div>
+
+    <div id="touch-controls">
+      <div class="touch-group">
+        <div class="touch-btn" id="touch-left">◀</div>
+        <div class="touch-btn" id="touch-right">▶</div>
+      </div>
+      <div class="touch-group">
+        <div class="touch-btn" id="touch-thrust">▲</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

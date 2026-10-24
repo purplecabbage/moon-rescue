@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moon Rescue — Level Editor</title>
+  <link rel="stylesheet" href="/src/editor/editor.css">
+</head>
+<body>
+  <div id="app">
+    <div id="toolbar">
+      <span id="app-title">MOON RESCUE — LEVEL EDITOR</span>
+      <div class="tool-group">
+        <button data-tool="wall" class="active" title="Paint solid rock">Wall</button>
+        <button data-tool="open" title="Paint open space">Open</button>
+        <button data-tool="home" title="Click a row to mark it as the home/surface row">Home Row</button>
+        <button data-tool="start" title="Click a cell to place the rocket's start position">Start</button>
+        <button data-tool="miner" title="Click to place a miner, click an existing one to remove it">Miner</button>
+        <button data-tool="fuel" title="Click to place a fuel canister, click an existing one to remove it">Fuel</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="file-group">
+        <button id="btn-new">New</button>
+        <button id="btn-open">Open…</button>
+        <button id="btn-save">Save</button>
+        <button id="btn-save-as">Save As…</button>
+        <button id="btn-playtest">Playtest ▶</button>
+      </div>
+    </div>
+    <div id="main">
+      <div id="canvas-wrap">
+        <canvas id="grid-canvas"></canvas>
+      </div>
+      <div id="side-panel">
+        <fieldset>
+          <legend>LEVEL</legend>
+          <label>ID <input type="text" id="meta-id"></label>
+          <label>Name <input type="text" id="meta-name"></label>
+        </fieldset>
+        <fieldset>
+          <legend>GRID</legend>
+          <label>Cols <input type="number" id="grid-cols" min="4" max="200"></label>
+          <label>Rows <input type="number" id="grid-rows" min="4" max="200"></label>
+          <label>Cell size (px) <input type="number" id="grid-cellsize" min="8" max="128"></label>
+          <button id="btn-resize" style="width:100%; margin-top:4px;">Resize Grid</button>
+        </fieldset>
+        <fieldset>
+          <legend>LEGEND</legend>
+          <div class="legend-row"><span class="swatch" style="background:#fff2df;"></span> start position</div>
+          <div class="legend-row"><span class="swatch" style="background:#ff3131;"></span> miner</div>
+          <div class="legend-row"><span class="swatch" style="background:#2ad2ff;"></span> fuel canister</div>
+        </fieldset>
+        <fieldset>
+          <legend>TUNABLES</legend>
+          <div id="tune-fields-editor"></div>
+        </fieldset>
+        <div id="status-line"></div>
+      </div>
+    </div>
+    <input type="file" id="file-input" accept="application/json" hidden>
+  </div>
+
+  <script type="module" src="/src/editor/main.js"></script>
+</body>
+</html>
