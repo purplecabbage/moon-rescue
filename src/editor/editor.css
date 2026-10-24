@@ -51,6 +51,27 @@ label > input[type="text"], label > input[type="number"]{
 }
 .tune-row .tune-unit{width:44px; flex-shrink:0; color:var(--hot-amber); opacity:0.8; font-size:9px;}
 
+.voice-row{
+  display:grid; grid-template-columns:22px 1fr 68px 1fr 20px; gap:4px; align-items:center;
+  font-size:9px; margin:5px 0; padding-bottom:5px; border-bottom:1px solid rgba(13,74,104,0.4);
+}
+.voice-row .voice-num{color:var(--cold); opacity:0.7; text-align:center;}
+.voice-row input[type="number"]{
+  width:100%; background:rgba(13,74,104,0.2); border:1px solid var(--cold-dim);
+  color:var(--ink); font-family:inherit; font-size:9px; padding:2px 3px; border-radius:2px;
+}
+.voice-row select{
+  width:100%; background:rgba(13,74,104,0.2); border:1px solid var(--cold-dim);
+  color:var(--ink); font-family:inherit; font-size:9px; padding:2px 1px; border-radius:2px;
+}
+.voice-row input[type="range"]{width:100%; accent-color:var(--hot-amber);}
+.voice-row .voice-remove{
+  background:transparent; border:1px solid var(--hot); color:var(--hot);
+  border-radius:2px; font-size:10px; line-height:1; padding:2px 0; cursor:pointer;
+}
+.voice-row .voice-remove:hover{background:rgba(255,49,49,0.15);}
+#btn-audio-toggle.active{background:rgba(42,210,255,0.18); border-color:var(--cold); color:var(--cold);}
+
 #status-line{font-size:11px; opacity:0.8; min-height:1.4em; color:var(--cold);}
 .legend-row{display:flex; align-items:center; gap:6px; font-size:10px; opacity:0.85; margin:3px 0;}
 .swatch{width:10px; height:10px; border-radius:50%; display:inline-block;}

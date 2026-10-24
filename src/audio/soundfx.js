@@ -1,11 +1,16 @@
 // All audio is synthesized at runtime via the Web Audio API — no sound files.
+import { mergeAudioConfig } from './audioConfig.js';
+
 export class SoundFX {
   constructor(){
     this.ctx = null;
     this.noiseNodes = {};
+    this.droneVoiceNodes = [];
+    this.audio = mergeAudioConfig(null);
   }
 
-  init(){
+  init(audioConfig){
+    this.audio = mergeAudioConfig(audioConfig);
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     this.ctx = new AC();
@@ -20,6 +25,22 @@ export class SoundFX {
     this._startBassPulse();
   }
 
+  // Re-applies a (possibly new) config to an already-running preview — used
+  // by the level editor when a different level is loaded while audio
+  // preview is already on. No-ops until init() has actually built the graph.
+  applyAudioConfig(audioConfig){
+    this.audio = mergeAudioConfig(audioConfig);
+    if (!this.ctx) return;
+    this.setDroneVoiceCount(this.audio.droneVoices.length);
+    this.audio.droneVoices.forEach((v, i) => {
+      this.setDroneVoiceParam(i, 'freq', v.freq);
+      this.setDroneVoiceParam(i, 'type', v.type);
+      this.setDroneVoiceParam(i, 'gain', v.gain);
+    });
+    this.setDelay({ time: this.audio.delayTime, feedback: this.audio.delayFeedback });
+    this.setReverbWet(this.audio.reverbWet);
+  }
+
   // A long convolution reverb, built from a synthesized impulse response
   // (exponentially-decaying noise — there's no audio file to load from, so
   // this is the standard way to fake a big space). `reverbSend` is the
@@ -30,13 +51,19 @@ export class SoundFX {
     this.reverb = this.ctx.createConvolver();
     this.reverb.buffer = this._makeImpulseResponse(3.5, 3.2);
 
-    const wet = this.ctx.createGain();
-    wet.gain.value = 0.38;
-    this.reverb.connect(wet);
-    wet.connect(this.master);
+    this.reverbWetGain = this.ctx.createGain();
+    this.reverbWetGain.gain.value = this.audio.reverbWet;
+    this.reverb.connect(this.reverbWetGain);
+    this.reverbWetGain.connect(this.master);
 
     this.reverbSend = this.ctx.createGain();
     this.reverbSend.connect(this.reverb);
+  }
+
+  setReverbWet(value){
+    if (!this.ctx) return;
+    this.reverbWetGain.gain.setValueAtTime(value, this.ctx.currentTime);
+    this.audio.reverbWet = value;
   }
 
   _makeImpulseResponse(duration, decay){
@@ -58,23 +85,35 @@ export class SoundFX {
   // cave reflection losing energy and high end with distance.
   _setupDelayBus(){
     this.delayNode = this.ctx.createDelay(1.0);
-    this.delayNode.delayTime.value = 0.44;
+    this.delayNode.delayTime.value = this.audio.delayTime;
 
     const feedbackFilter = this.ctx.createBiquadFilter();
     feedbackFilter.type = 'lowpass';
     feedbackFilter.frequency.value = 3200;
 
-    const feedback = this.ctx.createGain();
-    feedback.gain.value = 0.48;
+    this.delayFeedbackGain = this.ctx.createGain();
+    this.delayFeedbackGain.gain.value = this.audio.delayFeedback;
 
     this.delayNode.connect(feedbackFilter);
-    feedbackFilter.connect(feedback);
-    feedback.connect(this.delayNode);
+    feedbackFilter.connect(this.delayFeedbackGain);
+    this.delayFeedbackGain.connect(this.delayNode);
 
     const wet = this.ctx.createGain();
     wet.gain.value = 0.6;
     this.delayNode.connect(wet);
     wet.connect(this.master);
+  }
+
+  setDelay({ time, feedback }){
+    if (!this.ctx) return;
+    if (time !== undefined){
+      this.delayNode.delayTime.setValueAtTime(time, this.ctx.currentTime);
+      this.audio.delayTime = time;
+    }
+    if (feedback !== undefined){
+      this.delayFeedbackGain.gain.setValueAtTime(feedback, this.ctx.currentTime);
+      this.audio.delayFeedback = feedback;
+    }
   }
 
   _makeNoise(){
@@ -85,27 +124,62 @@ export class SoundFX {
     return buf;
   }
 
+  _createDroneVoice(index, cfg){
+    const osc = this.ctx.createOscillator();
+    osc.type = cfg.type;
+    osc.frequency.value = cfg.freq;
+    const gain = this.ctx.createGain();
+    gain.gain.value = cfg.gain;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 900 / (index + 1);
+    osc.connect(filter); filter.connect(gain);
+    gain.connect(this.master);
+    gain.connect(this.reverbSend);
+    osc.start();
+    const lfo = this.ctx.createOscillator();
+    lfo.frequency.value = 0.05 + index * 0.01;
+    const lfoGain = this.ctx.createGain();
+    lfoGain.gain.value = 130;
+    lfo.connect(lfoGain); lfoGain.connect(filter.frequency);
+    lfo.start();
+    return { osc, gain, filter, lfo, lfoGain };
+  }
+
+  _stopDroneVoice(v){
+    try { v.osc.stop(); } catch (e){ /* already stopped */ }
+    try { v.lfo.stop(); } catch (e){ /* already stopped */ }
+  }
+
   _startDrone(){
-    [55, 82.5, 110, 277.18].forEach((f, i) => {
-      const osc = this.ctx.createOscillator();
-      osc.type = i === 1 ? 'sawtooth' : 'triangle';
-      osc.frequency.value = f;
-      const gain = this.ctx.createGain();
-      gain.gain.value = 0.045 + i * 0.012;
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 900 / (i+1);
-      osc.connect(filter); filter.connect(gain);
-      gain.connect(this.master);
-      gain.connect(this.reverbSend);
-      osc.start();
-      const lfo = this.ctx.createOscillator();
-      lfo.frequency.value = 0.05 + i * 0.01;
-      const lfoGain = this.ctx.createGain();
-      lfoGain.gain.value = 130;
-      lfo.connect(lfoGain); lfoGain.connect(filter.frequency);
-      lfo.start();
-    });
+    this.droneVoiceNodes = this.audio.droneVoices.map((cfg, i) => this._createDroneVoice(i, cfg));
+  }
+
+  // Adds/removes oscillator voices to match a new count — the only drone
+  // operation that needs new nodes; frequency/type/gain tweak existing ones
+  // in place (see setDroneVoiceParam) so dragging a slider never clicks.
+  setDroneVoiceCount(n){
+    if (!this.ctx) { this.audio.droneVoices.length = n; return; }
+    while (this.droneVoiceNodes.length < n){
+      const i = this.droneVoiceNodes.length;
+      const cfg = this.audio.droneVoices[i] || { freq: 110, type: 'sine', gain: 0.05 };
+      this.audio.droneVoices[i] = cfg;
+      this.droneVoiceNodes.push(this._createDroneVoice(i, cfg));
+    }
+    while (this.droneVoiceNodes.length > n){
+      this._stopDroneVoice(this.droneVoiceNodes.pop());
+      this.audio.droneVoices.pop();
+    }
+  }
+
+  setDroneVoiceParam(i, key, value){
+    const v = this.droneVoiceNodes[i];
+    if (!this.audio.droneVoices[i]) return;
+    this.audio.droneVoices[i][key] = value;
+    if (!v || !this.ctx) return;
+    if (key === 'freq') v.osc.frequency.setValueAtTime(value, this.ctx.currentTime);
+    else if (key === 'type') v.osc.type = value;
+    else if (key === 'gain') v.gain.gain.setValueAtTime(value, this.ctx.currentTime);
   }
 
   // A slow, loosely-rhythmic tick of bright filtered noise under the drone —
@@ -131,10 +205,20 @@ export class SoundFX {
     src.start(t); src.stop(t + 0.25);
   }
 
+  // Both percussive loops read tempo/beat-spacing fresh off `this.audio`
+  // each time they schedule the next hit, so editing those live (or loading
+  // a different level's config) changes the rhythm starting next hit,
+  // without needing to tear down and restart the timers.
+  _nextPercussiveDelayMs(beats){
+    const beatSec = 60 / Math.max(1, this.audio.tempo);
+    const base = beatSec * Math.max(1, beats);
+    return (base * 0.8 + Math.random() * base * 0.4) * 1000; // ±20% humanize
+  }
+
   _startStaticPulse(){
     const scheduleNext = () => {
       this._hihatTick();
-      this._staticTimer = setTimeout(scheduleNext, 3500 + Math.random() * 3000);
+      this._staticTimer = setTimeout(scheduleNext, this._nextPercussiveDelayMs(this.audio.hihatBeats));
     };
     scheduleNext();
   }
@@ -171,9 +255,9 @@ export class SoundFX {
   _startBassPulse(){
     const scheduleNext = () => {
       this._bassDrum();
-      this._bassTimer = setTimeout(scheduleNext, 9000 + Math.random() * 7000);
+      this._bassTimer = setTimeout(scheduleNext, this._nextPercussiveDelayMs(this.audio.bassBeats));
     };
-    this._bassTimer = setTimeout(scheduleNext, 4000 + Math.random() * 4000);
+    this._bassTimer = setTimeout(scheduleNext, this._nextPercussiveDelayMs(this.audio.bassBeats) * 0.4);
   }
 
   blip(f0, f1, dur, type = 'sine', vol = 0.2){
@@ -264,6 +348,10 @@ export class SoundFX {
   stopAllThrust(){
     Object.keys(this.noiseNodes).forEach((key) => this._noiseLoopStop(key));
   }
+
+  // One-off manual triggers for the level editor's "Test" buttons.
+  previewHihat(){ this._hihatTick(); }
+  previewBass(){ this._bassDrum(); }
 
   lowFuel(){ this.blip(880, 860, 0.08, 'square', 0.12); }
 

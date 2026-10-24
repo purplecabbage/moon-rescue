@@ -103,7 +103,7 @@ export class GameScene extends Phaser.Scene {
     document.getElementById('btn-launch').onclick = () => {
       hud.hidePanel('panel-intro');
       hud.showPanel('hud');
-      sfx.init();
+      sfx.init(level.audio);
       self.started = true;
       self.physics.world.gravity.y = level.gravity;
       self.rocketBody.body.setAllowGravity(true);

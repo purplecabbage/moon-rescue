@@ -1,5 +1,6 @@
 // Plain data operations on a level object — the same JSON shape the game
 // loads via src/world/levelLoader.js. No rendering or DOM here.
+import { cloneDefaultAudio } from '../audio/audioConfig.js';
 
 export function createBlankLevel(){
   const cols = 21, rows = 24, cellSize = 32, homeRow = 2;
@@ -28,8 +29,18 @@ export function createBlankLevel(){
     tiles,
     start: { x: (Math.floor(cols / 2) + 0.5) * cellSize, y: cellSize * 1.3 },
     miners: [],
-    fuelPickups: []
+    fuelPickups: [],
+    audio: cloneDefaultAudio()
   };
+}
+
+// Levels saved before the drone editor existed have no "audio" block at
+// all — the game already defaults gracefully (see mergeAudioConfig), but
+// the editor needs real data to show and edit, so this fills it in the
+// first time such a level is opened.
+export function ensureAudioConfig(level){
+  if (!level.audio) level.audio = cloneDefaultAudio();
+  return level.audio;
 }
 
 export function cloneLevel(level){
