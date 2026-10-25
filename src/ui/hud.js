@@ -1,3 +1,5 @@
+import { formatTime } from '../leaderboard.js';
+
 export function bindTouch(id, state, key){
   const el = document.getElementById(id);
   const set = (v) => (e) => { e.preventDefault(); state[key] = v; el.classList.toggle('active', v); };
@@ -66,6 +68,10 @@ export function setLevelInfo(level){
   document.getElementById('intro-level-name').textContent = level.name;
   document.getElementById('hud-gravity').textContent =
     'SURFACE GRAVITY ' + level.gravity + ' · ' + level.name;
+}
+
+export function updateTimer(ms){
+  document.getElementById('timer-value').textContent = formatTime(ms);
 }
 
 export function showPanel(id){ document.getElementById(id).hidden = false; }

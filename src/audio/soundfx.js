@@ -1,12 +1,28 @@
 // All audio is synthesized at runtime via the Web Audio API — no sound files.
 import { mergeAudioConfig } from './audioConfig.js';
 
+const MUSIC_PREF_KEY = 'moonrescue.musicEnabled';
+
+function readMusicPref(){
+  try {
+    const raw = localStorage.getItem(MUSIC_PREF_KEY);
+    return raw === null ? true : raw === '1';
+  } catch (e) {
+    return true;
+  }
+}
+
 export class SoundFX {
   constructor(){
     this.ctx = null;
     this.noiseNodes = {};
     this.droneVoiceNodes = [];
     this.audio = mergeAudioConfig(null);
+    // The "music" toggle — drone + percussion — is a standing player
+    // preference, independent of any one level's audio config, so it's
+    // persisted and read once up front rather than reset on init()/level
+    // change.
+    this.musicEnabled = readMusicPref();
   }
 
   init(audioConfig){
@@ -20,9 +36,77 @@ export class SoundFX {
     this.noiseBuffer = this._makeNoise();
     this._setupReverbBus();
     this._setupDelayBus();
+    this._setupMusicBus();
     this._startDrone();
     this._startStaticPulse();
     this._startBassPulse();
+  }
+
+  // Drone voices and the hi-hat/bass percussion ("the music") route through
+  // these two gain nodes instead of straight to master/delay/reverb — same
+  // destinations each already used, just gated behind one shared on/off
+  // switch. Everything else (pickups, thrusters, crashes...) bypasses this
+  // entirely, including the shared reverb send, so muting the music never
+  // touches game sound effects or their reverb.
+  _setupMusicBus(){
+    const level = this.musicEnabled ? 1 : 0;
+
+    this.droneBus = this.ctx.createGain();
+    this.droneBus.gain.value = level;
+    this.droneBus.connect(this.master);
+    this.droneBus.connect(this.reverbSend);
+
+    this.percBus = this.ctx.createGain();
+    this.percBus.gain.value = level;
+    this.percBus.connect(this.master);
+    this.percBus.connect(this.delayNode);
+    this.percBus.connect(this.reverbSend);
+  }
+
+  // Fades a gain node's value by hand, frame by frame, rather than scheduling
+  // it with the native AudioParam ramp APIs. Those ramps turned out to get
+  // stuck partway in Chromium whenever a short one-shot source (a hi-hat
+  // tick, say) feeding into the node stops mid-ramp — reproducible, and not
+  // worth chasing further; a plain per-frame `.value =` assignment sidesteps
+  // the whole scheduling timeline and is unaffected by it.
+  _fadeGain(node, target, durationMs){
+    if (node._fadeRaf) cancelAnimationFrame(node._fadeRaf);
+    const start = node.gain.value;
+    const t0 = performance.now();
+    const step = () => {
+      const p = Math.min(1, (performance.now() - t0) / durationMs);
+      node.gain.value = start + (target - start) * p;
+      node._fadeRaf = p < 1 ? requestAnimationFrame(step) : null;
+    };
+    step();
+  }
+
+  setMusicEnabled(enabled){
+    this.musicEnabled = enabled;
+    try { localStorage.setItem(MUSIC_PREF_KEY, enabled ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+    if (!this.ctx) return;
+    const target = enabled ? 1 : 0;
+    this._fadeGain(this.droneBus, target, 250);
+    this._fadeGain(this.percBus, target, 250);
+  }
+
+  toggleMusic(){
+    this.setMusicEnabled(!this.musicEnabled);
+    return this.musicEnabled;
+  }
+
+  // Editor-only escape hatch: the level editor's "audio preview" always
+  // wants to be audible while it's on, regardless of a player's persisted
+  // in-game music-mute preference (a separate setting this has no business
+  // reading or overwriting) — so it forces the bus gain directly instead of
+  // going through setMusicEnabled.
+  setMusicBusAudible(audible){
+    if (!this.ctx) return;
+    const v = audible ? 1 : 0;
+    if (this.droneBus._fadeRaf) cancelAnimationFrame(this.droneBus._fadeRaf);
+    if (this.percBus._fadeRaf) cancelAnimationFrame(this.percBus._fadeRaf);
+    this.droneBus.gain.value = v;
+    this.percBus.gain.value = v;
   }
 
   // Re-applies a (possibly new) config to an already-running preview — used
@@ -134,8 +218,7 @@ export class SoundFX {
     filter.type = 'lowpass';
     filter.frequency.value = 900 / (index + 1);
     osc.connect(filter); filter.connect(gain);
-    gain.connect(this.master);
-    gain.connect(this.reverbSend);
+    gain.connect(this.droneBus);
     osc.start();
     const lfo = this.ctx.createOscillator();
     lfo.frequency.value = 0.05 + index * 0.01;
@@ -199,9 +282,7 @@ export class SoundFX {
     gain.gain.exponentialRampToValueAtTime(0.09, t + 0.025); // softer onset, no hard click
     gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22); // longer tail, more "tss" than "tick"
     src.connect(filter); filter.connect(gain);
-    gain.connect(this.master);
-    gain.connect(this.delayNode);
-    gain.connect(this.reverbSend);
+    gain.connect(this.percBus);
     src.start(t); src.stop(t + 0.25);
   }
 
@@ -246,9 +327,7 @@ export class SoundFX {
     gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
 
     osc.connect(filter); filter.connect(gain);
-    gain.connect(this.master);
-    gain.connect(this.delayNode);
-    gain.connect(this.reverbSend);
+    gain.connect(this.percBus);
     osc.start(t); osc.stop(t + 0.5);
   }
 

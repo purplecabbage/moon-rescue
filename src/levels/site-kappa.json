@@ -20,7 +20,7 @@
   "startFallSpeed": 40,
   "audio": {
     "droneVoices": [
-      { "freq": 55, "type": "triangle", "gain": 0.045 },
+      { "freq": 55, "type": "sine", "gain": 0.045 },
       { "freq": 82.5, "type": "sawtooth", "gain": 0.057 },
       { "freq": 110, "type": "triangle", "gain": 0.069 },
       { "freq": 277.18, "type": "triangle", "gain": 0.081 }

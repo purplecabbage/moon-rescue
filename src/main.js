@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GameScene } from './scenes/GameScene.js';
-import { LEVELS } from './levels.js';
 import { sfx } from './audio/soundfx.js';
+import { firstIncompleteLevel } from './progress.js';
 
 const PLAYTEST_KEY = 'moonrescue_playtest_level';
 
@@ -9,7 +9,8 @@ async function resolveBootData(){
   const params = new URLSearchParams(location.search);
 
   // ?levelFile=/src/levels/whatever.json — load any saved level file by path,
-  // without needing to register it in src/levels.js first.
+  // without needing to register it in src/levels.js first. Dev/editor route:
+  // skips the level-select screen and boots straight into the level.
   const levelFile = params.get('levelFile');
   if (levelFile){
     try {
@@ -28,7 +29,11 @@ async function resolveBootData(){
     } catch (err){ /* fall through to the default level below */ }
   }
 
-  return { levelId: LEVELS[0].id };
+  // Normal boot: open on the level-select screen rather than dropping
+  // straight into a mission. The level it preloads in the background is
+  // just a sensible default (first incomplete one) in case the player picks
+  // it; GameScene shows panel-select on top until they actually choose.
+  return { levelId: firstIncompleteLevel().id, showSelect: true };
 }
 
 const config = {
@@ -47,4 +52,26 @@ window.__sfx = sfx; // debug hook
 
 resolveBootData().then((bootData) => {
   game.scene.add('game', GameScene, true, bootData);
+});
+
+// Music mute toggle — lives outside the scene entirely (sfx is a standalone
+// singleton), so it's wired up once here rather than rebuilt on every
+// scene.restart() the way scene-owned buttons are.
+const musicBtn = document.getElementById('btn-music');
+function refreshMusicBtn(){
+  musicBtn.textContent = sfx.musicEnabled ? '🎵' : '🔇';
+  musicBtn.classList.toggle('muted', !sfx.musicEnabled);
+}
+refreshMusicBtn();
+musicBtn.addEventListener('click', () => {
+  sfx.toggleMusic();
+  refreshMusicBtn();
+});
+window.addEventListener('keydown', (e) => {
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (e.key.toLowerCase() === 'm'){
+    sfx.toggleMusic();
+    refreshMusicBtn();
+  }
 });

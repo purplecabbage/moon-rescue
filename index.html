@@ -20,10 +20,12 @@
     <div class="bracket" id="b-br"></div>
 
     <button id="btn-tune" title="Tuning console (T)">⚙</button>
+    <button id="btn-music" title="Toggle music (M) — game sounds stay on">🎵</button>
 
     <div id="hud" hidden>
       <div class="hud-row" id="hud-miners">MINERS <span id="rescued-count">0</span>/<span id="total-count">6</span><span id="carrying-wrap"> &middot; CARRYING <span id="carrying-count">0</span>/<span id="carrying-capacity">4</span></span></div>
       <div class="hud-row" id="hud-lives">LIVES <span id="lives-count">●●●</span></div>
+      <div class="hud-row" id="hud-timer">TIME <span id="timer-value">0:00.00</span></div>
       <div class="hud-row" id="hud-shield-wrap">
         <span class="hud-bar-label">SHIELD</span>
         <div id="hud-shield-bar"><div id="hud-shield-fill"></div></div>
@@ -36,7 +38,13 @@
       <div class="hud-row" id="hud-message"></div>
     </div>
 
-    <div class="panel" id="panel-intro">
+    <div class="panel" id="panel-select" hidden>
+      <h1>MOON RESCUE</h1>
+      <p class="tagline">Select a mission. Each site unlocks once the one before it is rescued.</p>
+      <div class="level-list" id="level-list"></div>
+    </div>
+
+    <div class="panel" id="panel-intro" hidden>
       <h1>MOON RESCUE</h1>
       <p class="tagline" id="intro-story">
         Incident report: a shaft collapse has trapped the mining crew of Site Kappa below the surface.
@@ -49,12 +57,24 @@
       </div>
       <div class="brief" id="intro-level-name"></div>
       <button class="cta" id="btn-launch">Launch Mission</button>
+      <button class="link-btn" id="btn-intro-select">◀ Level Select</button>
+      <div class="leaderboard" id="intro-leaderboard">
+        <div class="lb-title">BEST RESCUE TIMES</div>
+        <div class="lb-list" id="intro-lb-list"></div>
+      </div>
     </div>
 
     <div class="panel" id="panel-end" hidden>
       <h1 id="end-title">MISSION COMPLETE</h1>
       <div id="end-stats"></div>
+      <div class="lb-entry" id="end-lb-entry" hidden></div>
+      <div class="leaderboard" id="end-leaderboard">
+        <div class="lb-title">BEST RESCUE TIMES</div>
+        <div class="lb-list" id="end-lb-list"></div>
+      </div>
+      <button class="cta" id="btn-next" hidden>Next Mission ▶</button>
       <button class="cta" id="btn-restart">Relaunch Mission</button>
+      <button class="link-btn" id="btn-end-select">◀ Level Select</button>
     </div>
 
     <div class="panel" id="panel-tune" hidden>

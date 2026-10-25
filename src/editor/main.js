@@ -226,6 +226,7 @@ document.getElementById('btn-audio-toggle').addEventListener('click', () => {
   if (previewEnabled){
     sfx.init(level.audio);       // first click: builds the whole graph; later clicks just resume it
     sfx.applyAudioConfig(level.audio); // make sure it reflects whatever's in the form right now
+    sfx.setMusicBusAudible(true); // ignore a muted in-game music preference — editing needs to hear it
     if (sfx.ctx) sfx.master.gain.setValueAtTime(0.5, sfx.ctx.currentTime);
     btn.textContent = '🔇 Disable Audio Preview';
     btn.classList.add('active');

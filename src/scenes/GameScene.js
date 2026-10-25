@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
-import { getLevel } from '../levels.js';
+import { getLevel, getNextLevel } from '../levels.js';
 import { loadLevelWorld } from '../world/levelLoader.js';
-import { drawGlowSegments, drawWorldBoundary, createPadBeacon, updatePadBeacon } from '../world/terrain.js';
+import { drawGlowSegments, drawWorldBoundary, createPadBeacon, updatePadBeacon, splitSurfaceSegments } from '../world/terrain.js';
 import { createRocket, LEFT_PORT, RIGHT_PORT } from '../entities/rocket.js';
 import { createSurvivor, updateSurvivorPulse, destroySurvivor, ejectSurvivor, updateSurvivorFall, tickPickupCooldown, setVisualPosition } from '../entities/survivor.js';
 import { createFuelPickup, updateFuelPickupPulse, destroyFuelPickup } from '../entities/fuelPickup.js';
@@ -10,6 +10,10 @@ import { sfx } from '../audio/soundfx.js';
 import * as hud from '../ui/hud.js';
 import { initTunePanel } from '../ui/tunePanel.js';
 import { COLD, COLD_DIM, HOT, HOT_AMBER, HOT_WHITE } from '../theme.js';
+import { qualifiesForLeaderboard, addLeaderboardEntry, formatTime } from '../leaderboard.js';
+import { renderLeaderboard, showInitialsEntry, hideInitialsEntry } from '../ui/leaderboardUI.js';
+import { markLevelComplete } from '../progress.js';
+import { openLevelSelect } from '../ui/levelSelect.js';
 
 const ROCKET_PROBE = 13;
 const PICKUP_RADIUS = 30;
@@ -22,12 +26,14 @@ export class GameScene extends Phaser.Scene {
   init(data){
     this.levelId = data && data.levelId;
     this.levelData = data && data.levelData;
+    this.showSelectOnStart = !!(data && data.showSelect);
   }
 
   create(){
     const level = this.levelData || getLevel(this.levelId);
     this.level = level;
     hud.setLevelInfo(level);
+    renderLeaderboard(document.getElementById('intro-lb-list'), level.id);
 
     this.cameras.main.setBackgroundColor('#040406');
     const world = loadLevelWorld(level);
@@ -36,8 +42,12 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.gravity.y = 0; // enabled on launch, see btn-launch handler below
 
     drawWorldBoundary(this, world.worldW, world.worldH, COLD_DIM);
-    drawGlowSegments(this, world.wallSegs, COLD, [
+    const { surface: surfaceSegs, rest: mineSegs } = splitSurfaceSegments(world.wallSegs, world.homeY);
+    drawGlowSegments(this, mineSegs, COLD, [
       { w: 7, a: 0.08 }, { w: 3.5, a: 0.18 }, { w: 1.3, a: 1 }
+    ]);
+    drawGlowSegments(this, surfaceSegs, HOT_AMBER, [
+      { w: 9, a: 0.1 }, { w: 4, a: 0.22 }, { w: 1.6, a: 1 }
     ]);
 
     this.add.text(world.startX, world.homeY - 34, 'BASE', {
@@ -92,11 +102,14 @@ export class GameScene extends Phaser.Scene {
     this._stranded = false;
     this._strandedEjected = false;
     this._exploding = false;
+    this.elapsedMs = 0;
+    this.timerActive = false;
 
     hud.updateLivesHud(this.lives);
     hud.updateRescuedCount(0);
     hud.updateFuelBar(this.fuel, level.fuelMax);
     hud.updateShieldBar(this.shield, level.shieldMax);
+    hud.updateTimer(0);
     initTunePanel(this);
 
     const self = this;
@@ -105,6 +118,7 @@ export class GameScene extends Phaser.Scene {
       hud.showPanel('hud');
       sfx.init(level.audio);
       self.started = true;
+      self.timerActive = true;
       self.physics.world.gravity.y = level.gravity;
       self.rocketBody.body.setAllowGravity(true);
       self.rocketBody.body.velocity.set(0, level.startFallSpeed);
@@ -117,6 +131,23 @@ export class GameScene extends Phaser.Scene {
       hud.hidePanel('hud');
       self.scene.restart({ levelId: self.levelId, levelData: self.levelData });
     };
+    document.getElementById('btn-next').onclick = () => {
+      const next = getNextLevel(level.id);
+      if (!next) return;
+      hud.hidePanel('panel-end');
+      hud.showPanel('panel-intro');
+      hud.hidePanel('hud');
+      self.scene.restart({ levelId: next.id, levelData: null });
+    };
+    document.getElementById('btn-intro-select').onclick = () => openLevelSelect(self);
+    document.getElementById('btn-end-select').onclick = () => openLevelSelect(self);
+
+    if (this.showSelectOnStart){
+      hud.hidePanel('panel-intro');
+      openLevelSelect(this);
+    } else {
+      hud.showPanel('panel-intro');
+    }
   }
 
   isSolid(r, c){
@@ -226,21 +257,44 @@ export class GameScene extends Phaser.Scene {
 
   endGame(won){
     this.ended = true;
+    this.timerActive = false;
     sfx.stopAllThrust();
     hud.hidePanel('hud');
     const title = document.getElementById('end-title');
     const stats = document.getElementById('end-stats');
     const lost = this.world.miners.length - this.totalMiners;
+    const levelId = this.level.id;
+    const entryEl = document.getElementById('end-lb-entry');
+    const listEl = document.getElementById('end-lb-list');
+    const nextBtn = document.getElementById('btn-next');
     if (won){
       title.textContent = lost > 0 ? 'MISSION COMPLETE' : 'ALL MINERS RECOVERED';
       sfx.victory();
+      markLevelComplete(levelId);
+      const next = getNextLevel(levelId);
+      nextBtn.hidden = !next;
     } else {
       title.textContent = 'MISSION LOST';
       sfx.crash();
+      nextBtn.hidden = true;
     }
     stats.innerHTML = 'RESCUED <span class="big">' + this.rescuedTotal + '</span> / ' + this.world.miners.length +
       (lost > 0 ? ' (' + lost + ' lost)' : '') +
-      '<br>HULL INTEGRITY ' + Math.max(0, this.lives) + ' / ' + this.level.lives;
+      '<br>HULL INTEGRITY ' + Math.max(0, this.lives) + ' / ' + this.level.lives +
+      (won ? '<br>TIME <span class="big">' + formatTime(this.elapsedMs) + '</span>' : '');
+
+    // Only a completed rescue earns a leaderboard shot — a lost mission never
+    // finished the job the clock is timing.
+    if (won && qualifiesForLeaderboard(levelId, this.elapsedMs)){
+      showInitialsEntry(entryEl, (initials) => {
+        const board = addLeaderboardEntry(levelId, initials, this.elapsedMs);
+        const rank = board.findIndex((e) => e.timeMs === this.elapsedMs && e.initials === initials);
+        renderLeaderboard(listEl, levelId, rank);
+      });
+    } else {
+      hideInitialsEntry(entryEl);
+      renderLeaderboard(listEl, levelId);
+    }
     hud.showPanel('panel-end');
   }
 
@@ -275,7 +329,16 @@ export class GameScene extends Phaser.Scene {
       }
     }
     for (let i = 0; i < this.fuelPickups.length; i++) updateFuelPickupPulse(this.fuelPickups[i], t);
-    updatePadBeacon(this.padBeacon, world.startX, world.homeY, world.cellSize * 2.5, COLD, t);
+    updatePadBeacon(this.padBeacon, world.startX, world.homeY, world.cellSize * 2.5, HOT_AMBER, t);
+
+    // Mission clock runs from launch to completion, including crash/respawn
+    // pauses (that's time lost to the attempt), but freezes whenever the
+    // scene itself is paused (e.g. the tuning console), since update() then
+    // simply isn't called.
+    if (this.timerActive && !this.ended){
+      this.elapsedMs += delta;
+      hud.updateTimer(this.elapsedMs);
+    }
 
     if (!this.started || this.ended){
       updateParticles(this.particles, dt);
@@ -421,7 +484,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Delivery/refuel triggers on any safe landing at the level's home row.
-    this.onSurface = this.landed && bottomRow <= level.homeRow + 1;
+    this.onSurface = this.landed && bottomRow <= world.homeRow + 1;
 
     if (this.onSurface){
       this.fuel = Math.min(level.fuelMax, this.fuel + level.fuelRegen * dt);

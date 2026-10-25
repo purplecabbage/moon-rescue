@@ -19,6 +19,18 @@ export function drawGlowSegments(scene, segs, color, layers){
   return g;
 }
 
+// Separates the ground line at the mouth of the shaft (the horizontal top
+// edges bordering the home row) from the rest of the wall segments, so the
+// base can be drawn in its own color instead of blending into the cave.
+export function splitSurfaceSegments(segs, homeY){
+  const surface = [], rest = [];
+  for (const s of segs){
+    if (s[1] === s[3] && s[1] === homeY) surface.push(s);
+    else rest.push(s);
+  }
+  return { surface, rest };
+}
+
 export function drawWorldBoundary(scene, worldW, worldH, color){
   const g = scene.add.graphics();
   g.setBlendMode(Phaser.BlendModes.ADD);
