@@ -1,7 +1,11 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
-export default defineConfig({
+// Served from https://purplecabbage.github.io/moon-rescue/ on GitHub Pages,
+// so production builds need that subpath as the base — but local dev
+// (`pnpm run dev`) should stay at the site root like always.
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/moon-rescue/' : '/',
   build: {
     rollupOptions: {
       input: {
@@ -10,4 +14,4 @@ export default defineConfig({
       }
     }
   }
-});
+}));

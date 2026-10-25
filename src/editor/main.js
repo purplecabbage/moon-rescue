@@ -418,7 +418,9 @@ document.getElementById('btn-save').addEventListener('click', save);
 document.getElementById('btn-save-as').addEventListener('click', saveAs);
 document.getElementById('btn-playtest').addEventListener('click', () => {
   sessionStorage.setItem(PLAYTEST_KEY, JSON.stringify(level));
-  window.open('/index.html?playtest=1', '_blank');
+  // Relative to BASE_URL, not the site root — on GitHub Pages the app lives
+  // under /moon-rescue/, not /.
+  window.open(import.meta.env.BASE_URL + 'index.html?playtest=1', '_blank');
 });
 
 window.addEventListener('beforeunload', (e) => {
