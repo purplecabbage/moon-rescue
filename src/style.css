@@ -9,16 +9,26 @@
 }
 *{box-sizing:border-box;}
 html,body{background:var(--bg);}
+html{
+  /* Belt-and-suspenders against the viewport meta tag: blocks pinch-zoom
+     and double-tap-to-zoom at the browser level, which otherwise leaves
+     mobile players zoomed in with the controls scrolled off-screen. */
+  touch-action:none;
+  overscroll-behavior:none;
+}
 body{
   margin:0;
   padding:16px;
   min-height:100vh;
+  overflow:hidden;
   display:flex;
   align-items:center;
   justify-content:center;
   background:var(--bg);
   font-family:"Share Tech Mono",ui-monospace,monospace;
   color:var(--ink);
+  touch-action:none;
+  overscroll-behavior:none;
   -webkit-tap-highlight-color:transparent;
 }
 #stage{
