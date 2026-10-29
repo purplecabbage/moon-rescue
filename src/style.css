@@ -23,7 +23,10 @@ body{
 }
 #stage{
   position:relative;
-  width:100%;
+  /* Fit within whichever viewport dimension is tighter, so a short
+     (landscape-phone) window can't push the box taller than the screen. */
+  width:min(100%, calc((100vh - 32px) * (960 / 600)));
+  width:min(100%, calc((100dvh - 32px) * (960 / 600)));
   max-width:960px;
   aspect-ratio:960/600;
   background:#000;
@@ -33,6 +36,23 @@ body{
   border-radius:4px;
   touch-action:none;
   user-select:none;
+}
+/* Portrait touch devices: a 960x600 landscape box letterboxed to fit a
+   narrow screen shrinks to a tiny rect. Go full-bleed instead and let the
+   Phaser canvas (scale mode RESIZE) match this shape directly, so the
+   camera just shows more of the level vertically. */
+@media (pointer:coarse) and (orientation:portrait){
+  body{ padding:0; }
+  #stage{
+    width:100vw;
+    width:100dvw;
+    height:100vh;
+    height:100dvh;
+    max-width:none;
+    aspect-ratio:auto;
+    border:none;
+    border-radius:0;
+  }
 }
 #game-root{position:absolute; inset:0; line-height:0;}
 #game-root canvas{display:block; width:100%; height:100%;}

@@ -39,10 +39,15 @@ async function resolveBootData(){
 const config = {
   type: Phaser.AUTO,
   parent: 'game-root',
+  // RESIZE (rather than a fixed 960x600 FIT) lets the canvas always fill
+  // #stage exactly, whatever shape that is. The camera follows the rocket
+  // and derives its bounds from the level's world size (see GameScene),
+  // not from this resolution, so a portrait phone just reveals more of the
+  // shaft vertically instead of letterboxing down to a tiny landscape rect.
   width: 960,
   height: 600,
   backgroundColor: '#040406',
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+  scale: { mode: Phaser.Scale.RESIZE },
   physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } }
 };
 
