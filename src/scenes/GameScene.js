@@ -6,6 +6,10 @@ import { createRocket, LEFT_PORT, RIGHT_PORT } from '../entities/rocket.js';
 import { createSurvivor, updateSurvivorPulse, destroySurvivor, ejectSurvivor, updateSurvivorFall, tickPickupCooldown, setVisualPosition } from '../entities/survivor.js';
 import { createFuelPickup, updateFuelPickupPulse, destroyFuelPickup } from '../entities/fuelPickup.js';
 import { createDotTexture, spawnBurst, spawnDirected, updateParticles } from '../entities/particles.js';
+import { createDoor, updateDoor, drawDoor } from '../entities/door.js';
+import { createSwitch, drawSwitch } from '../entities/doorSwitch.js';
+import { createCircuits, pressSwitch, tickCircuits, doorShouldBeOpen, secondsLeft } from '../world/circuits.js';
+import { cellKey } from '../world/levelLoader.js';
 import { sfx } from '../audio/soundfx.js';
 import * as hud from '../ui/hud.js';
 import { initTunePanel } from '../ui/tunePanel.js';
@@ -16,6 +20,10 @@ import { markLevelComplete } from '../progress.js';
 import { openLevelSelect } from '../ui/levelSelect.js';
 
 const ROCKET_PROBE = 13;
+const SWITCH_RADIUS = 24;
+// A timed circuit warns before it resets: its doors flash and a tick sounds
+// each second for this long beforehand.
+const CIRCUIT_WARNING_SECONDS = 3;
 const PICKUP_RADIUS = 30;
 const EXPLOSION_PAUSE_MS = 1300;
 const MIN_MINER_SEPARATION = 30;
@@ -57,6 +65,10 @@ export class GameScene extends Phaser.Scene {
 
     this.miners = world.miners.map((m) => createSurvivor(this, m.x, m.y));
     this.fuelPickups = world.fuelPickups.map((f) => createFuelPickup(this, f.x, f.y, f.amount));
+    this.circuits = createCircuits();
+    this.doors = world.doors.map((d) => createDoor(this, d));
+    this.doorsByCell = new Map(this.doors.map((d) => [cellKey(d.row, d.col), d]));
+    this.switches = world.switches.map((s) => createSwitch(this, s));
 
     createDotTexture(this);
     this.particles = [];
@@ -154,7 +166,82 @@ export class GameScene extends Phaser.Scene {
     const { grid, rows, cols } = this.world;
     if (r < 0) return false;
     if (r >= rows || c < 0 || c >= cols) return true;
-    return grid[r][c];
+    if (grid[r][c]) return true;
+    const door = this.doorsByCell.get(cellKey(r, c));
+    return !!door && door.closed;
+  }
+
+  // True while the ship or a resting miner is inside the door's cell. Doors
+  // wait for this to clear before closing, so nothing is ever sealed inside
+  // solid rock.
+  isDoorwayOccupied(door){
+    const cell = this.world.cellSize;
+    const centerX = (door.col + 0.5) * cell, centerY = (door.row + 0.5) * cell;
+    const reach = cell / 2 + ROCKET_PROBE;
+    const shipInside = Math.abs(this.rocketBody.x - centerX) < reach && Math.abs(this.rocketBody.y - centerY) < reach;
+    const minerInside = this.miners.some((m) =>
+      !m.falling && Math.floor(m.x / cell) === door.col && Math.floor(m.y / cell) === door.row);
+    return shipInside || minerInside;
+  }
+
+  // A miner standing on a door loses their footing when it opens.
+  dropMinersStandingOn(door){
+    const cell = this.world.cellSize;
+    this.miners.forEach((m) => {
+      if (m.falling) return;
+      const supportRow = Math.floor((m.y + cell * 0.6) / cell);
+      const supportCol = Math.floor(m.x / cell);
+      if (supportRow !== door.row || supportCol !== door.col) return;
+      m.falling = true;
+      m.fallTime = 0;
+      m.vx = 0;
+      m.vy = 0;
+    });
+  }
+
+  // Runs every frame, in flight or not: counts timed circuits down, slides
+  // each door toward the state its circuit calls for, and redraws both.
+  updateDoorsAndSwitches(dt, t){
+    if (this.doors.length === 0 && this.switches.length === 0) return;
+    const before = this.circuits;
+    this.circuits = tickCircuits(before, dt);
+
+    Object.keys(this.circuits).forEach((n) => {
+      const was = before[n], now = this.circuits[n];
+      const timedOut = was.active && !now.active;
+      const crossedASecond = now.remaining > 0 && secondsLeft(now) < secondsLeft(was);
+      if (timedOut){
+        sfx.circuitReset();
+        this.showMessage('CIRCUIT ' + n + ' RESET');
+      } else if (crossedASecond && now.remaining <= CIRCUIT_WARNING_SECONDS){
+        sfx.circuitTick();
+      }
+    });
+
+    this.doors.forEach((door) => {
+      const state = this.circuits[door.circuit];
+      const change = updateDoor(door, doorShouldBeOpen(door, this.circuits), this.isDoorwayOccupied(door), dt);
+      if (change === 'opened') this.dropMinersStandingOn(door);
+      const isAboutToReset = state.remaining > 0 && state.remaining <= CIRCUIT_WARNING_SECONDS;
+      drawDoor(door, this.world.cellSize, isAboutToReset ? 0.5 + 0.5 * Math.sin(t * 18) : null);
+    });
+    this.switches.forEach((sw) => drawSwitch(sw, this.circuits[sw.circuit], t));
+  }
+
+  // Flying through a switch presses it once; it re-arms when the ship leaves.
+  pressSwitchesNear(x, y){
+    this.switches.forEach((sw) => {
+      const dx = sw.x - x, dy = sw.y - y;
+      const isTouching = (dx * dx + dy * dy) < SWITCH_RADIUS * SWITCH_RADIUS;
+      if (!isTouching){ sw.armed = true; return; }
+      if (!sw.armed) return;
+      sw.armed = false;
+      this.circuits = pressSwitch(this.circuits, sw);
+      sfx.switchPress();
+      this.showMessage(sw.duration > 0
+        ? 'CIRCUIT ' + sw.circuit + ' LIVE — ' + sw.duration + 's'
+        : 'CIRCUIT ' + sw.circuit + ' SWITCHED');
+    });
   }
 
   showMessage(text, seconds = 1.8){
@@ -329,6 +416,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     for (let i = 0; i < this.fuelPickups.length; i++) updateFuelPickupPulse(this.fuelPickups[i], t);
+    this.updateDoorsAndSwitches(dt, t);
     updatePadBeacon(this.padBeacon, world.startX, world.homeY, world.cellSize * 2.5, HOT_AMBER, t);
 
     // Mission clock runs from launch to completion, including crash/respawn
@@ -525,6 +613,8 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.fuelPickups = this.fuelPickups.filter((f) => !f.picked);
+
+    this.pressSwitchesNear(bx, by);
 
     if (this.fuel <= 0){
       if (!this._stranded){

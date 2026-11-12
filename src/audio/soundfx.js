@@ -437,6 +437,15 @@ export class SoundFX {
   thud(){ this.blip(140, 70, 0.12, 'square', 0.2); }
 
   minerLost(){ this.blip(260, 50, 0.5, 'sine', 0.22); }
+
+  // Door circuits: a rising chirp when a switch is pressed, a falling one
+  // when a timed circuit runs out, and a short tick for each of its last
+  // few seconds.
+  switchPress(){ this.blip(420, 840, 0.1, 'square', 0.14); }
+
+  circuitReset(){ this.blip(600, 200, 0.18, 'square', 0.12); }
+
+  circuitTick(){ this.blip(1200, 1150, 0.04, 'square', 0.07); }
 }
 
 export const sfx = new SoundFX();
