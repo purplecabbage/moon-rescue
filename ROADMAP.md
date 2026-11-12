@@ -37,16 +37,6 @@ Not done yet, worth revisiting:
 - No zoom — large grids just scroll.
 - No validation that a level is actually completable (reachable miners, reachable home row, etc.) — editor won't warn you if you paint yourself into an unwinnable level.
 
-## Mobile viewport & touch fixes — DONE (needs real-device re-check)
-
-Portrait phones used to render the game as a tiny landscape-shaped rect in the middle of the screen, because `#stage` always kept a fixed 960×600 (16:10) aspect ratio. Fixed in two commits (`8815a8c`, `0e3c2ea`):
-
-- `src/main.js`: Phaser scale mode changed from `FIT` (stretches a fixed 960×600 canvas) to `RESIZE`, so the canvas always matches `#stage`'s actual shape. Safe because `GameScene` drives everything off a scrolling camera whose bounds come from the level's world size — nothing in gameplay logic hardcodes 960×600.
-- `src/style.css`: `#stage` now also clamps its width by available viewport height (fixes landscape-phone windows that could get taller than the screen); a `@media (pointer:coarse) and (orientation:portrait)` rule goes full-bleed (`100dvw`/`100dvh`, no border) instead of staying landscape-letterboxed.
-- Separately, tapping the stage could trigger the browser's pinch/double-tap zoom, which scrolled the on-screen touch controls off-viewport and made the game unplayable. Fixed via the viewport `<meta>` tag (`maximum-scale=1.0, user-scalable=no`) plus `touch-action:none`/`overscroll-behavior:none` on `html`/`body` (previously only `#stage` had `touch-action:none`).
-
-Verified via `pnpm vite build` only — no agent-side browser tool could reach localhost to screenshot a real mobile/portrait viewport this session. **Still needs a pass on an actual phone** (or Chrome DevTools device toolbar) to confirm: the portrait layout looks right, pinch/double-tap zoom is actually gone, and the touch controls stay reachable throughout a full mission.
-
 ## Switch-operated doors — DONE
 
 Doors that block a grid cell until a switch opens them (the "closing gates, timed, and switched" item from the hazards list below). Doors and switches are wired by **circuit** number (1–4, one color each, plus a row of pips so color isn't the only cue): a switch works every door on its circuit.
@@ -60,6 +50,16 @@ Doors that block a grid cell until a switch opens them (the "closing gates, time
 Verified in headless Chrome (door solidity, toggle, timer expiry, the wait-until-clear rule, miners dropping, and each editor tool), not by a human playing Site Lambda start to finish — its timings and difficulty want a real playtest.
 
 Not done: moving walls (doors slide open in place; nothing travels), and the editor still can't check that a level is completable with its doors.
+
+## Mobile viewport & touch fixes — DONE (needs real-device re-check)
+
+Portrait phones used to render the game as a tiny landscape-shaped rect in the middle of the screen, because `#stage` always kept a fixed 960×600 (16:10) aspect ratio. Fixed in two commits (`8815a8c`, `0e3c2ea`):
+
+- `src/main.js`: Phaser scale mode changed from `FIT` (stretches a fixed 960×600 canvas) to `RESIZE`, so the canvas always matches `#stage`'s actual shape. Safe because `GameScene` drives everything off a scrolling camera whose bounds come from the level's world size — nothing in gameplay logic hardcodes 960×600.
+- `src/style.css`: `#stage` now also clamps its width by available viewport height (fixes landscape-phone windows that could get taller than the screen); a `@media (pointer:coarse) and (orientation:portrait)` rule goes full-bleed (`100dvw`/`100dvh`, no border) instead of staying landscape-letterboxed.
+- Separately, tapping the stage could trigger the browser's pinch/double-tap zoom, which scrolled the on-screen touch controls off-viewport and made the game unplayable. Fixed via the viewport `<meta>` tag (`maximum-scale=1.0, user-scalable=no`) plus `touch-action:none`/`overscroll-behavior:none` on `html`/`body` (previously only `#stage` had `touch-action:none`).
+
+Verified via `pnpm vite build` only — no agent-side browser tool could reach localhost to screenshot a real mobile/portrait viewport this session. **Still needs a pass on an actual phone** (or Chrome DevTools device toolbar) to confirm: the portrait layout looks right, pinch/double-tap zoom is actually gone, and the touch controls stay reachable throughout a full mission.
 
 ## Advanced hazards/mechanics (later levels)
 
