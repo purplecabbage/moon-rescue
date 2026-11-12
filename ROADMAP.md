@@ -47,6 +47,17 @@ Portrait phones used to render the game as a tiny landscape-shaped rect in the m
 
 Verified via `pnpm vite build` only — no agent-side browser tool could reach localhost to screenshot a real mobile/portrait viewport this session. **Still needs a pass on an actual phone** (or Chrome DevTools device toolbar) to confirm: the portrait layout looks right, pinch/double-tap zoom is actually gone, and the touch controls stay reachable throughout a full mission.
 
+## UI polish pass — DONE (needs real-device re-check)
+
+A design review of every screen at desktop, portrait-phone and landscape-phone sizes. Verified with headless-Chrome screenshots (touch emulation), not on a physical phone.
+
+- **HUD**: rebuilt as two flex clusters (miners/time/carrying left, lives/shield/fuel right) instead of individually absolute-positioned rows, which overlapped each other and the corner buttons on phones. The level-name line drops out when the stage is narrow. Lives show lost ships as hollow dots. Sizes use container units (`cqw`) off `#stage`, since the stage — not the window — is what the UI lives in.
+- **Panels**: scroll instead of clipping when the stage is short (landscape phones used to cut off the title and the Launch button), with a darker backdrop so level wireframe no longer runs through the copy. Mission brief leads with the level's own name and a facts row (miners/seats/ships/gravity); its story text names the current site rather than always saying "Site Kappa". End screen has one primary action, a distinct "mission lost" look, and stat tiles.
+- **Level centering**: `src/world/cameraBounds.js` centers levels narrower than the viewport instead of pinning them to the left edge.
+- **Touch**: thrusters are real `<button>`s with SVG glyphs, only shown in flight; corner buttons are 44px on touch screens; safe-area insets are respected in full-bleed portrait. Emoji glyphs (⚙ 🎵 🔒 ▶ ◀) are gone — they rendered as color emoji on phones.
+- **Accessibility**: focus rings on every control, `aria-label`s on icon-only buttons, and `prefers-reduced-motion` turns off camera shake, the damage flash and the low-gauge pulse.
+- **Fixes found along the way**: the shield message showed hit points as a percent ("SHIELD 117%"); touch handlers were re-added on every scene restart.
+
 ## Advanced hazards/mechanics (later levels)
 
 Once static levels exist, later ones can introduce new tile/entity types:

@@ -14,11 +14,13 @@ import { qualifiesForLeaderboard, addLeaderboardEntry, formatTime } from '../lea
 import { renderLeaderboard, showInitialsEntry, hideInitialsEntry } from '../ui/leaderboardUI.js';
 import { markLevelComplete } from '../progress.js';
 import { openLevelSelect } from '../ui/levelSelect.js';
+import { centeredCameraBounds } from '../world/cameraBounds.js';
 
 const ROCKET_PROBE = 13;
 const PICKUP_RADIUS = 30;
 const EXPLOSION_PAUSE_MS = 1300;
 const MIN_MINER_SEPARATION = 30;
+const INTRO_LEADERBOARD_ROWS = 3;
 
 export class GameScene extends Phaser.Scene {
   constructor(){ super('game'); }
@@ -33,7 +35,7 @@ export class GameScene extends Phaser.Scene {
     const level = this.levelData || getLevel(this.levelId);
     this.level = level;
     hud.setLevelInfo(level);
-    renderLeaderboard(document.getElementById('intro-lb-list'), level.id);
+    renderLeaderboard(document.getElementById('intro-lb-list'), level.id, { limit: INTRO_LEADERBOARD_ROWS });
 
     this.cameras.main.setBackgroundColor('#040406');
     const world = loadLevelWorld(level);
@@ -50,7 +52,9 @@ export class GameScene extends Phaser.Scene {
       { w: 9, a: 0.1 }, { w: 4, a: 0.22 }, { w: 1.6, a: 1 }
     ]);
 
-    this.add.text(world.startX, world.homeY - 34, 'BASE', {
+    // Sits just above the pad line, low enough to stay clear of the DOM HUD
+    // that overlays the top of the stage on narrow (portrait) screens.
+    this.add.text(world.startX, world.homeY - 14, 'BASE', {
       fontFamily: '"Share Tech Mono",monospace', fontSize: '13px', color: '#fff2df'
     }).setOrigin(0.5).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.85);
     this.padBeacon = createPadBeacon(this);
@@ -69,7 +73,15 @@ export class GameScene extends Phaser.Scene {
     this.centerThrustGfx = rocket.centerThrustGfx;
     this.rocketAngle = 0;
 
-    this.cameras.main.setBounds(0, 0, world.worldW, world.worldH);
+    // The canvas resizes with the page (scale mode RESIZE), so the bounds
+    // are re-derived whenever it does, not just once here.
+    const applyCameraBounds = () => {
+      const b = centeredCameraBounds(world.worldW, world.worldH, this.scale.width);
+      this.cameras.main.setBounds(b.x, b.y, b.width, b.height);
+    };
+    applyCameraBounds();
+    this.scale.on('resize', applyCameraBounds);
+    this.events.once('shutdown', () => this.scale.off('resize', applyCameraBounds));
     this.cameras.main.startFollow(this.rocketBody, true, 0.08, 0.08);
 
     this.keys = this.input.keyboard.addKeys({
@@ -105,7 +117,7 @@ export class GameScene extends Phaser.Scene {
     this.elapsedMs = 0;
     this.timerActive = false;
 
-    hud.updateLivesHud(this.lives);
+    hud.updateLivesHud(this.lives, level.lives);
     hud.updateRescuedCount(0);
     hud.updateFuelBar(this.fuel, level.fuelMax);
     hud.updateShieldBar(this.shield, level.shieldMax);
@@ -162,6 +174,12 @@ export class GameScene extends Phaser.Scene {
     this.msgTimer = seconds;
   }
 
+  // Camera shake is skipped for players who've asked their system for
+  // reduced motion; the damage flash and sound still mark the hit.
+  shake(durationMs, intensity){
+    if (!hud.prefersReducedMotion()) this.cameras.main.shake(durationMs, intensity);
+  }
+
   takeDamage(amount){
     if (amount <= 0) return;
     this.shield -= amount;
@@ -170,8 +188,10 @@ export class GameScene extends Phaser.Scene {
       this.loseLife();
     } else {
       sfx.thud();
-      this.cameras.main.shake(120, 0.004);
-      this.showMessage('SHIELD ' + Math.max(0, Math.round(this.shield)) + '%');
+      this.shake(120, 0.004);
+      // Shield is stored in hit points, so convert before calling it a percent
+      // (a 120hp shield used to read "SHIELD 117%" after its first knock).
+      this.showMessage('SHIELD ' + Math.round((this.shield / this.level.shieldMax) * 100) + '%');
     }
   }
 
@@ -226,7 +246,7 @@ export class GameScene extends Phaser.Scene {
     this._wasLeftThrusting = false;
     this._wasRightThrusting = false;
     sfx.crash();
-    this.cameras.main.shake(260, 0.012);
+    this.shake(260, 0.012);
     spawnBurst(this, this.particles, this.rocketBody.x, this.rocketBody.y, 46, [HOT, HOT_AMBER, HOT_WHITE], 40, 220, 0.5, 1.0);
     this.ejectCarriedMiners();
     this.started = false;
@@ -240,7 +260,7 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(EXPLOSION_PAUSE_MS, () => {
       this._exploding = false;
       this.lives--;
-      hud.updateLivesHud(this.lives);
+      hud.updateLivesHud(this.lives, level.lives);
       if (this.lives <= 0){ this.endGame(false); return; }
       this.showMessage('HULL BREACH — RESPAWNING AT BASE');
       this.rocketBody.body.reset(world.startX, world.homeY - 40);
@@ -260,40 +280,47 @@ export class GameScene extends Phaser.Scene {
     this.timerActive = false;
     sfx.stopAllThrust();
     hud.hidePanel('hud');
-    const title = document.getElementById('end-title');
-    const stats = document.getElementById('end-stats');
     const lost = this.world.miners.length - this.totalMiners;
     const levelId = this.level.id;
     const entryEl = document.getElementById('end-lb-entry');
     const listEl = document.getElementById('end-lb-list');
     const nextBtn = document.getElementById('btn-next');
+    const next = won ? getNextLevel(levelId) : null;
+
+    document.getElementById('panel-end').classList.toggle('is-loss', !won);
+    document.getElementById('end-title').textContent =
+      !won ? 'MISSION LOST' : (lost > 0 ? 'MISSION COMPLETE' : 'ALL MINERS RECOVERED');
     if (won){
-      title.textContent = lost > 0 ? 'MISSION COMPLETE' : 'ALL MINERS RECOVERED';
       sfx.victory();
       markLevelComplete(levelId);
-      const next = getNextLevel(levelId);
-      nextBtn.hidden = !next;
     } else {
-      title.textContent = 'MISSION LOST';
       sfx.crash();
-      nextBtn.hidden = true;
     }
-    stats.innerHTML = 'RESCUED <span class="big">' + this.rescuedTotal + '</span> / ' + this.world.miners.length +
-      (lost > 0 ? ' (' + lost + ' lost)' : '') +
-      '<br>HULL INTEGRITY ' + Math.max(0, this.lives) + ' / ' + this.level.lives +
-      (won ? '<br>TIME <span class="big">' + formatTime(this.elapsedMs) + '</span>' : '');
+    // One primary action per screen: moving on when there's somewhere to go,
+    // otherwise trying again. Relaunch steps back to a quieter style whenever
+    // Next Mission is there to take the lead.
+    nextBtn.hidden = !next;
+    document.getElementById('btn-restart').classList.toggle('secondary', !!next);
+
+    hud.renderFacts(document.getElementById('end-stats'), [
+      { label: lost > 0 ? 'RESCUED (' + lost + ' LOST)' : 'RESCUED', value: this.rescuedTotal + ' / ' + this.world.miners.length },
+      { label: 'SHIPS LEFT', value: Math.max(0, this.lives) + ' / ' + this.level.lives },
+      ...(won ? [{ label: 'TIME', value: formatTime(this.elapsedMs) }] : [])
+    ]);
 
     // Only a completed rescue earns a leaderboard shot — a lost mission never
-    // finished the job the clock is timing.
+    // finished the job the clock is timing. The board itself is always shown,
+    // including while initials are being entered, so the list under its
+    // heading is never blank.
+    renderLeaderboard(listEl, levelId);
     if (won && qualifiesForLeaderboard(levelId, this.elapsedMs)){
       showInitialsEntry(entryEl, (initials) => {
         const board = addLeaderboardEntry(levelId, initials, this.elapsedMs);
-        const rank = board.findIndex((e) => e.timeMs === this.elapsedMs && e.initials === initials);
-        renderLeaderboard(listEl, levelId, rank);
+        const highlightRank = board.findIndex((e) => e.timeMs === this.elapsedMs && e.initials === initials);
+        renderLeaderboard(listEl, levelId, { highlightRank });
       });
     } else {
       hideInitialsEntry(entryEl);
-      renderLeaderboard(listEl, levelId);
     }
     hud.showPanel('panel-end');
   }
@@ -562,7 +589,7 @@ export class GameScene extends Phaser.Scene {
       if (this.msgTimer <= 0) hud.clearMessage();
     }
 
-    hud.updateLivesHud(this.lives);
+    hud.updateLivesHud(this.lives, level.lives);
     updateParticles(this.particles, dt);
   }
 }

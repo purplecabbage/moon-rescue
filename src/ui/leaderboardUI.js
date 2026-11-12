@@ -1,7 +1,9 @@
 import { getLeaderboard, formatTime } from '../leaderboard.js';
 
-export function renderLeaderboard(listEl, levelId, highlightRank = -1){
-  const board = getLeaderboard(levelId);
+// `highlightRank` marks one row as the entry just set; `limit` shows only the
+// top N (the mission brief wants a target to beat, not the whole board).
+export function renderLeaderboard(listEl, levelId, { highlightRank = -1, limit = Infinity } = {}){
+  const board = getLeaderboard(levelId).slice(0, limit);
   listEl.innerHTML = '';
   if (board.length === 0){
     const row = document.createElement('div');
@@ -46,9 +48,13 @@ export function showInitialsEntry(containerEl, onSubmit){
   input.maxLength = 3;
   input.autocomplete = 'off';
   input.autocapitalize = 'characters';
+  input.spellcheck = false;
+  input.placeholder = 'AAA';
+  input.setAttribute('aria-label', 'Your initials');
   input.className = 'lb-initials-input';
 
   const btn = document.createElement('button');
+  btn.type = 'button';
   btn.className = 'cta lb-submit';
   btn.textContent = 'SAVE';
 

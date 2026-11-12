@@ -1,17 +1,19 @@
 import { LEVELS } from '../levels.js';
-import { isLevelUnlocked, isLevelComplete } from '../progress.js';
+import { isLevelUnlocked, isLevelComplete, firstIncompleteLevel } from '../progress.js';
 import { getLeaderboard, formatTime } from '../leaderboard.js';
 import * as hud from './hud.js';
 
 function renderRows(onSelect){
   const list = document.getElementById('level-list');
   list.innerHTML = '';
+  const nextUp = firstIncompleteLevel();
   LEVELS.forEach((level, i) => {
     const unlocked = isLevelUnlocked(level.id);
     const complete = isLevelComplete(level.id);
 
     const row = document.createElement('button');
-    row.className = 'level-row' + (unlocked ? '' : ' locked') + (complete ? ' complete' : '');
+    const isNextUp = unlocked && !complete && level.id === nextUp.id;
+    row.className = 'level-row' + (unlocked ? '' : ' locked') + (complete ? ' complete' : '') + (isNextUp ? ' next-up' : '');
     row.disabled = !unlocked;
     row.type = 'button';
 
@@ -26,12 +28,12 @@ function renderRows(onSelect){
     const status = document.createElement('span');
     status.className = 'level-status';
     if (!unlocked){
-      status.textContent = '🔒 LOCKED';
+      status.textContent = 'LOCKED';
     } else if (complete){
       const best = getLeaderboard(level.id)[0];
       status.textContent = best ? ('✓ BEST ' + formatTime(best.timeMs)) : '✓ COMPLETE';
     } else {
-      status.textContent = 'NOT COMPLETED';
+      status.textContent = 'READY ▸';
     }
 
     row.appendChild(num);
