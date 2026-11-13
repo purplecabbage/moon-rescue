@@ -1,6 +1,7 @@
 // Plain data operations on a level object — the same JSON shape the game
 // loads via src/world/levelLoader.js. No rendering or DOM here.
 import { cloneDefaultAudio } from '../audio/audioConfig.js';
+import { CIRCUIT_COUNT } from '../theme.js';
 
 export function createBlankLevel(){
   const cols = 21, rows = 24, cellSize = 32, homeRow = 2;
@@ -30,6 +31,8 @@ export function createBlankLevel(){
     start: { x: (Math.floor(cols / 2) + 0.5) * cellSize, y: cellSize * 1.3 },
     miners: [],
     fuelPickups: [],
+    doors: [],
+    switches: [],
     audio: cloneDefaultAudio()
   };
 }
@@ -41,6 +44,45 @@ export function createBlankLevel(){
 export function ensureAudioConfig(level){
   if (!level.audio) level.audio = cloneDefaultAudio();
   return level.audio;
+}
+
+// Same idea for levels saved before doors and switches existed.
+export function ensureDoorData(level){
+  if (!Array.isArray(level.doors)) level.doors = [];
+  if (!Array.isArray(level.switches)) level.switches = [];
+}
+
+export function findDoor(level, row, col){
+  return level.doors.find((d) => d.row === row && d.col === col) || null;
+}
+
+export function removeDoor(level, row, col){
+  level.doors = level.doors.filter((d) => !(d.row === row && d.col === col));
+}
+
+// Puts a door in a cell, replacing any door already there. The tile under a
+// door is always open space: the door is the only thing that blocks the cell,
+// and only while it's closed.
+export function placeDoor(level, row, col, { circuit, startsOpen }){
+  if (row < 0 || row >= level.tiles.length) return;
+  if (col < 0 || col >= level.tiles[row].length) return;
+  removeDoor(level, row, col);
+  setCell(level, row, col, false);
+  level.doors.push({ row, col, circuit, startsOpen });
+}
+
+// Wiring mistakes that would leave a door or switch doing nothing in play,
+// as short messages for the editor to show. An empty list means every
+// circuit in use has both ends.
+export function describeCircuitIssues(level){
+  const issues = [];
+  for (let n = 1; n <= CIRCUIT_COUNT; n++){
+    const doorCount = level.doors.filter((d) => d.circuit === n).length;
+    const switchCount = level.switches.filter((s) => s.circuit === n).length;
+    if (doorCount > 0 && switchCount === 0) issues.push('Circuit ' + n + ' has doors but no switch');
+    if (switchCount > 0 && doorCount === 0) issues.push('Circuit ' + n + ' has a switch but no doors');
+  }
+  return issues;
 }
 
 export function cloneLevel(level){
@@ -78,6 +120,7 @@ export function resizeGrid(level, newCols, newRows){
     tiles.push(rowStr);
   }
   level.tiles = tiles;
+  if (level.doors) level.doors = level.doors.filter((d) => d.row < newRows && d.col < newCols);
 }
 
 // Find the nearest entity of a list (miners/fuelPickups) within radius px,

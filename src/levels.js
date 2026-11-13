@@ -4,6 +4,7 @@ import siteGamma from './levels/site-gamma.json';
 import siteDelta from './levels/site-delta.json';
 import siteEpsilon from './levels/site-epsilon.json';
 import siteKappa from './levels/site-kappa.json';
+import siteLambda from './levels/site-lambda.json';
 
 // Levels are static, hand-authored JSON files under src/levels/, built (or
 // editable) with the level editor at /editor.html — see src/world/levelLoader.js
@@ -13,7 +14,7 @@ import siteKappa from './levels/site-kappa.json';
 //
 // Order here is also mission order: the level select screen (src/progress.js)
 // unlocks each level only once the one before it has been completed.
-export const LEVELS = [siteAlpha, siteBeta, siteGamma, siteDelta, siteEpsilon, siteKappa];
+export const LEVELS = [siteAlpha, siteBeta, siteGamma, siteDelta, siteEpsilon, siteKappa, siteLambda];
 
 export function getLevel(id){
   if (!id) return LEVELS[0];

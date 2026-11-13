@@ -1,0 +1,188 @@
+{
+  "id": "site-lambda",
+  "name": "SITE LAMBDA — GATE WORKS",
+  "cellSize": 32,
+  "homeRow": 2,
+  "gravity": 50,
+  "thrustAccel": 175,
+  "rotSpeed": 85,
+  "maxSpeed": 240,
+  "wallTolerance": 100,
+  "wallDamage": 0.6,
+  "shieldMax": 110,
+  "strandedTimeToExplode": 4,
+  "minerFallLimit": 2.5,
+  "fuelMax": 150,
+  "fuelBurn": 9,
+  "fuelRegen": 36,
+  "capacity": 4,
+  "lives": 3,
+  "startFallSpeed": 35,
+  "audio": {
+    "droneVoices": [
+      {
+        "freq": 61.74,
+        "type": "triangle",
+        "gain": 0.045
+      },
+      {
+        "freq": 92.6,
+        "type": "sawtooth",
+        "gain": 0.059
+      },
+      {
+        "freq": 123.47,
+        "type": "triangle",
+        "gain": 0.071
+      },
+      {
+        "freq": 311.13,
+        "type": "triangle",
+        "gain": 0.082
+      }
+    ],
+    "tempo": 16,
+    "hihatBeats": 1,
+    "bassBeats": 3,
+    "delayTime": 0.45,
+    "delayFeedback": 0.48,
+    "reverbWet": 0.4
+  },
+  "tiles": [
+    ".....................",
+    ".....................",
+    "#########...#########",
+    "#########...#########",
+    "#########...#########",
+    "###...............###",
+    "###...............###",
+    "#########...#########",
+    "#########...#########",
+    "#########...#########",
+    "#########...#########",
+    "#########...#########",
+    "########...##########",
+    "#######...###########",
+    "#######...###########",
+    "###...............###",
+    "###...............###",
+    "###...............###",
+    "###...............###",
+    "###########...#######",
+    "###########...#######",
+    "###...............###",
+    "###...............###",
+    "###...............###",
+    "###...............###",
+    "###...............###",
+    "#####################"
+  ],
+  "start": {
+    "x": 336,
+    "y": 48
+  },
+  "miners": [
+    {
+      "x": 144.0,
+      "y": 816.0
+    },
+    {
+      "x": 208.0,
+      "y": 816.0
+    },
+    {
+      "x": 304.0,
+      "y": 816.0
+    },
+    {
+      "x": 496.0,
+      "y": 816.0
+    },
+    {
+      "x": 528.0,
+      "y": 784.0
+    }
+  ],
+  "fuelPickups": [
+    {
+      "x": 528.0,
+      "y": 176.0,
+      "amount": 60
+    },
+    {
+      "x": 528.0,
+      "y": 528.0,
+      "amount": 45
+    }
+  ],
+  "doors": [
+    {
+      "row": 9,
+      "col": 9,
+      "circuit": 1,
+      "startsOpen": false
+    },
+    {
+      "row": 9,
+      "col": 10,
+      "circuit": 1,
+      "startsOpen": false
+    },
+    {
+      "row": 9,
+      "col": 11,
+      "circuit": 1,
+      "startsOpen": false
+    },
+    {
+      "row": 5,
+      "col": 14,
+      "circuit": 1,
+      "startsOpen": true
+    },
+    {
+      "row": 6,
+      "col": 14,
+      "circuit": 1,
+      "startsOpen": true
+    },
+    {
+      "row": 19,
+      "col": 11,
+      "circuit": 2,
+      "startsOpen": false
+    },
+    {
+      "row": 19,
+      "col": 12,
+      "circuit": 2,
+      "startsOpen": false
+    },
+    {
+      "row": 19,
+      "col": 13,
+      "circuit": 2,
+      "startsOpen": false
+    }
+  ],
+  "switches": [
+    {
+      "x": 144.0,
+      "y": 176.0,
+      "circuit": 1,
+      "duration": 0
+    },
+    {
+      "x": 144.0,
+      "y": 560.0,
+      "circuit": 2,
+      "duration": 10
+    },
+    {
+      "x": 528.0,
+      "y": 720.0,
+      "circuit": 2,
+      "duration": 10
+    }
+  ]
+}

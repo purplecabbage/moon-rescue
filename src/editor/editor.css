@@ -75,3 +75,18 @@ label > input[type="text"], label > input[type="number"]{
 #status-line{font-size:11px; opacity:0.8; min-height:1.4em; color:var(--cold);}
 .legend-row{display:flex; align-items:center; gap:6px; font-size:10px; opacity:0.85; margin:3px 0;}
 .swatch{width:10px; height:10px; border-radius:50%; display:inline-block;}
+
+.circuit-row{display:flex; align-items:center; gap:8px; font-size:11px; margin:5px 0;}
+.circuit-picker{display:flex; gap:4px;}
+/* Each button carries its circuit's color in --circuit (set from theme.js). */
+.circuit-picker button{
+  width:28px; padding:4px 0; text-align:center;
+  color:var(--circuit); border-color:var(--circuit); opacity:0.55;
+}
+.circuit-picker button:hover{color:var(--circuit); border-color:var(--circuit); opacity:0.85;}
+.circuit-picker button.active{background:var(--circuit); color:#05060a; opacity:1; font-weight:bold;}
+.check-label input{margin:0;}
+.hint{font-size:10px; line-height:1.4; opacity:0.7; margin:6px 0 2px;}
+#circuit-issues{font-size:10px; line-height:1.4; color:var(--hot-amber);}
+.swatch-door{border-radius:2px; background:rgba(93,255,143,0.35); border:1px solid #5dff8f;}
+.swatch-switch{background:transparent; border:2px solid #5dff8f;}

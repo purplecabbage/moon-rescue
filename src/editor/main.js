@@ -1,7 +1,11 @@
 import { TUNABLE_FIELDS } from '../tuning.js';
 import { AUDIO_FIELDS, WAVEFORM_TYPES, DRONE_VOICE_FIELDS, MIN_DRONE_VOICES, MAX_DRONE_VOICES } from '../audio/audioConfig.js';
 import { sfx } from '../audio/soundfx.js';
-import { createBlankLevel, ensureAudioConfig, setCell, resizeGrid, findNearestEntity, levelToJSON } from './levelState.js';
+import { CIRCUIT_COUNT, circuitCss } from '../theme.js';
+import {
+  createBlankLevel, ensureAudioConfig, ensureDoorData, setCell, resizeGrid, findNearestEntity, levelToJSON,
+  findDoor, placeDoor, removeDoor, describeCircuitIssues
+} from './levelState.js';
 import { render, canvasSize, eventToCell } from './grid.js';
 
 const PLAYTEST_KEY = 'moonrescue_playtest_level';
@@ -11,6 +15,14 @@ let level = createBlankLevel();
 let fileHandle = null;
 let tool = 'wall';
 let painting = false;
+// Door & switch tool settings (the DOORS & SWITCHES panel).
+let circuit = 1;
+let doorStartsOpen = false;
+let switchDuration = 0;
+// Set at the start of each Door-tool stroke: true if the stroke began on a
+// door identical to the current settings, so that stroke erases doors rather
+// than painting them.
+let doorStrokeErases = false;
 let hover = null;
 let dirty = false;
 let previewEnabled = false;
@@ -37,6 +49,8 @@ function refreshFormFromLevel(){
   document.getElementById('grid-cellsize').value = level.cellSize;
   buildTuneFields();
   ensureAudioConfig(level);
+  ensureDoorData(level);
+  refreshCircuitIssues();
   buildDroneVoices();
   buildAudioFields();
   if (previewEnabled) sfx.applyAudioConfig(level.audio);
@@ -83,6 +97,39 @@ function buildTuneFields(){
     row.appendChild(label); row.appendChild(slider); row.appendChild(num); row.appendChild(unit);
     container.appendChild(row);
   });
+}
+
+// --- doors & switches panel ---
+function refreshCircuitIssues(){
+  document.getElementById('circuit-issues').textContent = describeCircuitIssues(level).join(' · ');
+}
+
+function buildCircuitPicker(){
+  const container = document.getElementById('circuit-picker');
+  for (let n = 1; n <= CIRCUIT_COUNT; n++){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = n;
+    btn.title = 'Circuit ' + n;
+    btn.style.setProperty('--circuit', circuitCss(n));
+    btn.classList.toggle('active', n === circuit);
+    btn.addEventListener('click', () => {
+      circuit = n;
+      container.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === btn));
+    });
+    container.appendChild(btn);
+  }
+}
+buildCircuitPicker();
+
+document.getElementById('door-starts-open').addEventListener('change', (e) => { doorStartsOpen = e.target.checked; });
+document.getElementById('switch-duration').addEventListener('input', (e) => {
+  const seconds = parseFloat(e.target.value);
+  switchDuration = Number.isNaN(seconds) ? 0 : Math.max(0, seconds);
+});
+
+function isCurrentDoorSetting(door){
+  return !!door && door.circuit === circuit && door.startsOpen === doorStartsOpen;
 }
 
 // --- drone / audio panel ---
@@ -256,10 +303,20 @@ document.querySelectorAll('.tool-group button').forEach((btn) => {
 });
 
 // --- canvas painting ---
+// Tools that paint cells keep applying as the pointer is dragged; the rest
+// act once per click.
+function isDragTool(name){ return name === 'wall' || name === 'open' || name === 'door'; }
+
 function applyToolAt(pt){
   const { row, col, x, y } = pt;
-  if (tool === 'wall'){ setCell(level, row, col, true); markDirty(); return; }
-  if (tool === 'open'){ setCell(level, row, col, false); markDirty(); return; }
+  // Painting rock or open space over a door replaces it.
+  if (tool === 'wall'){ removeDoor(level, row, col); setCell(level, row, col, true); markDirty(); return; }
+  if (tool === 'open'){ removeDoor(level, row, col); setCell(level, row, col, false); markDirty(); return; }
+  if (tool === 'door'){
+    if (doorStrokeErases) removeDoor(level, row, col);
+    else placeDoor(level, row, col, { circuit, startsOpen: doorStartsOpen });
+    markDirty(); return;
+  }
   if (tool === 'home'){
     if (row < 0 || row >= level.tiles.length) return;
     level.homeRow = row; markDirty(); return;
@@ -292,18 +349,33 @@ function applyToolAt(pt){
     }
     markDirty(); return;
   }
+  if (tool === 'switch'){
+    const existing = findNearestEntity(level.switches, x, y, level.cellSize * 0.6);
+    if (existing){
+      level.switches.splice(level.switches.indexOf(existing), 1);
+    } else {
+      if (findNearestEntity(level.switches, cx, cy, MIN_ENTITY_SEPARATION)){
+        setStatus('Too close to another switch — leave more space between them');
+        return;
+      }
+      level.switches.push({ x: cx, y: cy, circuit, duration: switchDuration });
+    }
+    markDirty(); return;
+  }
 }
 
 canvas.addEventListener('pointerdown', (e) => {
   const pt = eventToCell(canvas, level, e);
+  if (tool === 'door') doorStrokeErases = isCurrentDoorSetting(findDoor(level, pt.row, pt.col));
   applyToolAt(pt);
-  if (tool === 'wall' || tool === 'open') painting = true;
+  if (isDragTool(tool)) painting = true;
+  refreshCircuitIssues();
   redraw();
 });
 canvas.addEventListener('pointermove', (e) => {
   const pt = eventToCell(canvas, level, e);
   hover = { row: pt.row, col: pt.col };
-  if (painting && (tool === 'wall' || tool === 'open')) applyToolAt(pt);
+  if (painting && isDragTool(tool)){ applyToolAt(pt); refreshCircuitIssues(); }
   redraw();
 });
 window.addEventListener('pointerup', () => { painting = false; });
@@ -321,6 +393,7 @@ document.getElementById('btn-resize').addEventListener('click', () => {
   const rows = parseInt(document.getElementById('grid-rows').value, 10);
   if (!cols || !rows) return;
   resizeGrid(level, cols, rows);
+  refreshCircuitIssues();
   markDirty();
   redraw();
 });

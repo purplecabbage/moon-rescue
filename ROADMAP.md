@@ -37,6 +37,20 @@ Not done yet, worth revisiting:
 - No zoom — large grids just scroll.
 - No validation that a level is actually completable (reachable miners, reachable home row, etc.) — editor won't warn you if you paint yourself into an unwinnable level.
 
+## Switch-operated doors — DONE
+
+Doors that block a grid cell until a switch opens them (the "closing gates, timed, and switched" item from the hazards list below). Doors and switches are wired by **circuit** number (1–4, one color each, plus a row of pips so color isn't the only cue): a switch works every door on its circuit.
+
+- **Rules** (`src/world/circuits.js`, pure functions, no Phaser): every circuit starts inactive. A plain switch toggles its circuit each time the ship flies through it; a timed switch (`duration` > 0) holds the circuit active for that many seconds, then it resets by itself. A normal door is open while its circuit is active; a `startsOpen` door is the reverse, so one switch can open one route and seal another.
+- **In play** (`src/entities/door.js`, `src/entities/doorSwitch.js`, wired up in `GameScene`): a closed door is solid to the ship and to falling miners. Doors never close on the ship or on a resting miner — they wait for the cell to clear. A miner standing on a door falls when it opens. Timed circuits flash their doors and tick for the last 3 seconds.
+- **Level format**: two optional arrays, `doors: [{ row, col, circuit, startsOpen }]` (one entry per cell; the tile under a door is always `.`) and `switches: [{ x, y, circuit, duration }]`. Levels without them load exactly as before.
+- **Editor**: Door and Switch tools, with a DOORS & SWITCHES panel for the circuit, "starts open", and the switch timer. Drag to paint door cells; start a stroke on a matching door to erase; Wall/Open painted over a door replaces it. The panel warns when a circuit has doors but no switch, or the reverse.
+- **Site Lambda — Gate Works** (`src/levels/site-lambda.json`, seventh in the campaign) uses all three kinds: a toggle that opens the main shaft while sealing a fuel alcove, and a 10-second timed door into the miners' chamber with a second switch inside to get back out.
+
+Verified in headless Chrome (door solidity, toggle, timer expiry, the wait-until-clear rule, miners dropping, and each editor tool), not by a human playing Site Lambda start to finish — its timings and difficulty want a real playtest.
+
+Not done: moving walls (doors slide open in place; nothing travels), and the editor still can't check that a level is completable with its doors.
+
 ## Mobile viewport & touch fixes — DONE (needs real-device re-check)
 
 Portrait phones used to render the game as a tiny landscape-shaped rect in the middle of the screen, because `#stage` always kept a fixed 960×600 (16:10) aspect ratio. Fixed in two commits (`8815a8c`, `0e3c2ea`):
@@ -66,7 +80,6 @@ Once static levels exist, later ones can introduce new tile/entity types:
 - Conveyor belts
 - Gravity wells
 - Portals
-- Closing gates, timed, and switched
 - pushable/rollable objects?
 - gravity shifts - the entire world slowly rotates, and down is always where gravity is pulling
 - lava

@@ -1,4 +1,5 @@
 import { isSolid } from './levelState.js';
+import { circuitCss } from '../theme.js';
 
 const COLORS = {
   bg: '#05060a',
@@ -61,6 +62,10 @@ export function render(ctx, level, hover){
   }
   ctx.stroke();
 
+  // doors: a closed door is a filled, hatched cell in its circuit color; one
+  // that starts open is just the dashed outline of where it will close.
+  for (const d of level.doors || []) drawDoorCell(ctx, d, cell);
+
   // start marker
   drawDiamond(ctx, level.start.x, level.start.y, 10, COLORS.start);
 
@@ -70,10 +75,63 @@ export function render(ctx, level, hover){
   // fuel pickups
   for (const f of level.fuelPickups) drawDiamond(ctx, f.x, f.y, 7, COLORS.fuel);
 
+  // switches: a ring in the circuit color, with a second ring if timed
+  for (const s of level.switches || []) drawSwitchMarker(ctx, s);
+
   if (hover){
     ctx.fillStyle = COLORS.hover;
     ctx.fillRect(hover.col * cell, hover.row * cell, cell, cell);
   }
+}
+
+function drawDoorCell(ctx, door, cell){
+  const color = circuitCss(door.circuit);
+  const x = door.col * cell, y = door.row * cell;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  if (door.startsOpen){
+    ctx.setLineDash([4, 3]);
+  } else {
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.35;
+    ctx.fillRect(x, y, cell, cell);
+    ctx.globalAlpha = 1;
+  }
+  ctx.strokeRect(x + 2, y + 2, cell - 4, cell - 4);
+  ctx.restore();
+  drawCircuitNumber(ctx, door.circuit, x + cell / 2, y + cell / 2);
+}
+
+function drawSwitchMarker(ctx, sw){
+  const color = circuitCss(sw.circuit);
+  ctx.save();
+  ctx.fillStyle = COLORS.bg;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(sw.x, sw.y, 10, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  if (sw.duration > 0){
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.arc(sw.x, sw.y, 14, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+  drawCircuitNumber(ctx, sw.circuit, sw.x, sw.y);
+}
+
+function drawCircuitNumber(ctx, circuit, x, y){
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 11px ui-monospace, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(circuit), x, y + 0.5);
+  ctx.restore();
 }
 
 function drawCircle(ctx, x, y, r, color){
