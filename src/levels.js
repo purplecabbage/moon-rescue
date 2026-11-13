@@ -24,3 +24,11 @@ export function getNextLevel(id){
   const idx = LEVELS.findIndex((l) => l.id === id);
   return idx >= 0 && idx < LEVELS.length - 1 ? LEVELS[idx + 1] : null;
 }
+
+// Campaign level names follow "SITE NAME — DESCRIPTOR". Splitting them lets
+// the UI show the site as a heading and the descriptor as a subtitle; a name
+// without the dash is all title.
+export function splitLevelName(name){
+  const [title, ...rest] = String(name || '').split(' — ');
+  return { title, subtitle: rest.join(' — ') };
+}

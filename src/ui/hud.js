@@ -1,12 +1,21 @@
 import { formatTime } from '../leaderboard.js';
+import { splitLevelName } from '../levels.js';
 
+// Assigns the handlers as properties (not addEventListener) because the scene
+// calls this again on every restart with a fresh `state` object: assignment
+// replaces the previous run's handlers, where addEventListener would stack a
+// new set on top of the stale ones each time.
 export function bindTouch(id, state, key){
   const el = document.getElementById(id);
   const set = (v) => (e) => { e.preventDefault(); state[key] = v; el.classList.toggle('active', v); };
-  el.addEventListener('pointerdown', set(true));
-  el.addEventListener('pointerup', set(false));
-  el.addEventListener('pointerleave', set(false));
-  el.addEventListener('pointercancel', set(false));
+  el.onpointerdown = set(true);
+  el.onpointerup = set(false);
+  el.onpointerleave = set(false);
+  el.onpointercancel = set(false);
+}
+
+export function prefersReducedMotion(){
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 export function showMessage(text){
@@ -19,8 +28,14 @@ export function clearMessage(){
   document.getElementById('hud-message').classList.remove('show');
 }
 
-export function updateLivesHud(lives){
-  document.getElementById('lives-count').textContent = '●'.repeat(Math.max(0, lives));
+// Filled dots are ships still available, hollow ones are ships already lost,
+// so the row keeps its width and shows how far into the run you are.
+export function updateLivesHud(lives, maxLives){
+  const remaining = Math.max(0, lives);
+  const lost = Math.max(0, maxLives - remaining);
+  const el = document.getElementById('lives-count');
+  el.textContent = '●'.repeat(remaining) + '○'.repeat(lost);
+  el.setAttribute('aria-label', remaining + ' of ' + Math.max(maxLives, remaining));
 }
 
 export function updateFuelBar(fuel, fuelMax){
@@ -58,16 +73,42 @@ export function updateTotalCount(count){
 export function updateCarrying(carried, capacity){
   document.getElementById('carrying-count').textContent = carried;
   document.getElementById('carrying-capacity').textContent = capacity;
-  document.getElementById('carrying-wrap').style.display = carried > 0 ? '' : 'none';
+  document.getElementById('hud-carrying').hidden = carried <= 0;
+}
+
+// Renders label/value pairs into a <dl class="facts"> — the mission facts on
+// the brief and the result stats on the end screen share this one look.
+export function renderFacts(listEl, facts){
+  listEl.innerHTML = '';
+  facts.forEach(({ label, value }) => {
+    const item = document.createElement('div');
+    item.className = 'fact';
+    const dt = document.createElement('dt');
+    dt.textContent = label;
+    const dd = document.createElement('dd');
+    dd.textContent = value;
+    item.appendChild(dt);
+    item.appendChild(dd);
+    listEl.appendChild(item);
+  });
 }
 
 export function setLevelInfo(level){
   document.getElementById('total-count').textContent = level.miners.length;
   document.getElementById('carrying-capacity').textContent = level.capacity;
-  document.getElementById('carrying-wrap').style.display = 'none';
-  document.getElementById('intro-level-name').textContent = level.name;
-  document.getElementById('hud-gravity').textContent =
-    'SURFACE GRAVITY ' + level.gravity + ' · ' + level.name;
+  document.getElementById('hud-carrying').hidden = true;
+  document.getElementById('hud-level').textContent = level.name + ' · GRAVITY ' + level.gravity;
+
+  const { title, subtitle } = splitLevelName(level.name);
+  document.getElementById('intro-title').textContent = title;
+  document.getElementById('intro-subtitle').textContent = subtitle;
+  document.getElementById('intro-site').textContent = title;
+  renderFacts(document.getElementById('intro-facts'), [
+    { label: 'MINERS', value: level.miners.length },
+    { label: 'SEATS', value: level.capacity },
+    { label: 'SHIPS', value: level.lives },
+    { label: 'GRAVITY', value: level.gravity }
+  ]);
 }
 
 export function updateTimer(ms){

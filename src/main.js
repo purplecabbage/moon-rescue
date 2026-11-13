@@ -64,8 +64,8 @@ resolveBootData().then((bootData) => {
 // scene.restart() the way scene-owned buttons are.
 const musicBtn = document.getElementById('btn-music');
 function refreshMusicBtn(){
-  musicBtn.textContent = sfx.musicEnabled ? '🎵' : '🔇';
   musicBtn.classList.toggle('muted', !sfx.musicEnabled);
+  musicBtn.setAttribute('aria-pressed', String(sfx.musicEnabled));
 }
 refreshMusicBtn();
 musicBtn.addEventListener('click', () => {
